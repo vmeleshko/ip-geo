@@ -8,7 +8,7 @@
 
 ## Time Spent
 
-- TODO: Track approximate time spent (e.g. 3.5h total).
+- First try: ~2 hours
 
 ## Challenges & Solutions
 
