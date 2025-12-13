@@ -3,7 +3,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from src.main import IPLookupRequest
+from src.models.request_models import IPLookupRequest
 
 
 def _build_request(ip: Any) -> IPLookupRequest:
