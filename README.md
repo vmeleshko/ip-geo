@@ -63,6 +63,12 @@ Run the test suite with:
 uv run pytest
 ```
 
+Run the test suite **with coverage**:
+
+```bash
+uv run coverage run -m pytest && uv run coverage report -m
+```
+
 ## Code quality
 
 This project uses [`ruff`](ruff.toml:1) for both linting and formatting.

@@ -24,7 +24,24 @@
 
 ## Third-party API / Database Selection
 
-- TODO: Record which IP geolocation provider you chose and why.
+I chose **ipapi.co** as the external IP geolocation provider.
+
+**Reasons:**
+
+- **Generous free tier for a take-home**: up to **30,000 free lookups per month**, with a hard cap of **1,000 requests per 24 hours**. This is more than enough for local development and reviewer testing.
+- **No mandatory API key for basic usage**: the public `/json/` endpoints work without authentication, which keeps the initial setup simple. An API key can be added later if needed.
+- **Straightforward JSON schema**: the response includes most of the fields we care about (IP, country, region, city, coordinates, timezone, organisation/ISP) so the normalization logic in [`IpGeolocationData`](src/ipapi_client.py:10) is relatively small.
+- **Mature hosted API**: avoids the overhead of managing and periodically updating a local GeoIP database for the purposes of this exercise. In a production system, we could still swap this out for a local database-backed provider behind the same interface.
+
+The dedicated client [`IpapiClient`](src/ipapi_client.py:43) wraps ipapi.co using `httpx.AsyncClient` and returns a normalized Pydantic v2 model [`IpGeolocationData`](src/ipapi_client.py:10). Error conditions (invalid IP, not found, upstream failures) are mapped to explicit exceptions (`InvalidIpError`, `IpNotFoundError`, `UpstreamServiceError`), so the FastAPI layer can translate them into consistent HTTP responses.
+
+**Organisation / ISP field**
+
+The `isp` field in [`IpGeolocationData`](src/ipapi_client.py:10) represents the **Internet Service Provider** or organisation that owns and operates the IP address (e.g. "Google LLC", "Comcast Cable Communications, LLC", major cloud providers, hosting/VPN networks). ipapi.co exposes this as the `org` field, which I map directly to `isp`. This is useful for:
+
+- Distinguishing between residential, corporate, and data-centre/cloud traffic.
+- Supporting fraud detection and risk scoring based on network type.
+- Applying access policies (e.g. blocking known VPN/hosting ranges).
 
 ## Production Readiness
 
