@@ -16,6 +16,7 @@ class IpGeolocationData(BaseModel):
     country_name: str
     region: str | None = None
     city: str | None = None
+    postal_code: str | None = None
     latitude: float | None = None
     longitude: float | None = None
     timezone: str | None = None
@@ -128,6 +129,7 @@ class IpapiClient:
             country_name=str(data.get("country_name") or ""),
             region=data.get("region"),
             city=data.get("city"),
+            postal_code=data.get("postal"),
             latitude=data.get("latitude"),
             longitude=data.get("longitude"),
             timezone=data.get("timezone"),

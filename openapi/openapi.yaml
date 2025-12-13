@@ -34,21 +34,38 @@ paths:
                 required:
                   - status
 
-  /v1/ip/{ip}:
+  /v1/ip/lookup:
     get:
-      summary: Look up geolocation information for a specific IP address.
-      operationId: getIpGeolocation
+      summary: Look up geolocation information for an IP address.
+      operationId: ipLookup
+      description: >
+        Perform an IP geolocation lookup. If an explicit IP address is provided
+        as a query parameter, that address is used. If it is omitted, the
+        service will use the calling client's IP address as seen by the API.
+      tags:
+        - ip
       parameters:
         - name: ip
-          in: path
-          required: true
-          description: IPv4 address to look up.
+          in: query
+          required: false
+          description: >
+            IPv4 or IPv6 address to look up. If not provided, the calling client's
+            IP address is used instead.
           schema:
             type: string
-            format: ipv4
+          examples:
+            explicitIpv4:
+              summary: Explicit IPv4 lookup
+              value: "8.8.8.8"
+            explicitIpv6:
+              summary: Explicit IPv6 lookup
+              value: "2001:4860:4860::8888"
+            clientIp:
+              summary: Caller IP lookup
+              value: null
       responses:
         "200":
-          description: Geolocation information for the requested IP.
+          description: Geolocation information for the requested or calling IP.
           content:
             application/json:
               schema:
@@ -59,52 +76,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidIp:
+                  summary: Invalid IP address
+                  value:
+                    code: "invalid_ip"
+                    message: "The supplied IP address is not a valid IPv4 address."
         "404":
           description: No geolocation information found for this IP.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                notFound:
+                  summary: IP not found
+                  value:
+                    code: "ip_not_found"
+                    message: "No geolocation information found for this IP address."
         "502":
           description: Upstream geolocation provider failed.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
-  /v1/ip/me:
-    get:
-      summary: Look up geolocation information for the calling client IP.
-      operationId: getClientIpGeolocation
-      responses:
-        "200":
-          description: Geolocation information for the caller IP.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/IpGeolocationResponse"
-        "400":
-          description: Unable to determine client IP from the request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "502":
-          description: Upstream geolocation provider failed.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                upstreamError:
+                  summary: Upstream provider error
+                  value:
+                    code: "upstream_error"
+                    message: "IP provider returned HTTP 500: Internal Server Error"
 
 components:
   schemas:
+    IPLookupRequest:
+      type: object
+      description: >
+        Request body for IP geolocation lookup. If `ip` is provided, that IP is
+        looked up. If it is omitted or null, the service uses the calling
+        client's IP address.
+      properties:
+        ip:
+          type: string
+          format: ipv4
+          nullable: true
+          description: >
+            IPv4 address to look up. If null or omitted, the calling client's IP
+            is used instead.
+          example: "8.8.8.8"
+
     IpGeolocationResponse:
       type: object
       description: Normalized geolocation information for an IP address.
       properties:
         ip:
           type: string
-          format: ipv4
+          description: IPv4 or IPv6 address that was resolved.
         country:
           type: string
           description: ISO 3166-1 alpha-2 country code.
@@ -118,6 +145,10 @@ components:
         city:
           type: string
           example: "Berlin"
+        postal_code:
+          type: string
+          description: Postal or ZIP code for the location, if available.
+          example: "10117"
         latitude:
           type: number
           format: float
@@ -148,11 +179,13 @@ components:
           example: "invalid_ip"
         message:
           type: string
-          example: "The supplied IP address is not a valid IPv4 address."
+          example: "The supplied IP address is not a valid IPv4 or IPv6 address."
         details:
-          type: object
-          additionalProperties: true
-          description: Optional structured error details.
+          type: array
+          description: Optional structured error details (e.g. validation error list).
+          items:
+            type: object
+            additionalProperties: true
       required:
         - code
         - message
