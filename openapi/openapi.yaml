@@ -11,6 +11,29 @@ servers:
     description: Local development
 
 paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      description: >
+        Lightweight endpoint to verify that the service is running and able to
+        serve requests. Returns a simple status payload.
+      tags:
+        - health
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                required:
+                  - status
+
   /v1/ip/{ip}:
     get:
       summary: Look up geolocation information for a specific IP address.
