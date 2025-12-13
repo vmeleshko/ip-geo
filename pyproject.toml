@@ -1,0 +1,28 @@
+[project]
+name = "ip-geolocation-service"
+version = "0.1.0"
+description = "FastAPI IP geolocation microservice"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+
+dependencies = [
+    "fastapi>=0.112,<0.113",
+    "uvicorn[standard]>=0.30,<0.31",
+    "httpx>=0.28,<0.29",
+    "pydantic>=2.9,<2.10",
+    "pydantic-settings>=2.6,<2.7",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23,<0.24",
+    "mypy>=1.13,<1.15",
+    "ruff>=0.6,<0.7",
+    "coverage>=7.6,<8.0",
+]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true

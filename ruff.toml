@@ -1,0 +1,90 @@
+# Configure Black for formatting
+line-length = 120
+
+[lint]
+# Select all relevant rule categories to ensure compatibility with pre-commit hooks
+select = [
+    "C",  # Compatibility rules (e.g., Python version compatibility)
+    "E",  # Style errors (e.g., indentation, spacing)
+    "F",  # Logical errors (e.g., undefined names, syntax issues)
+    "I",  # Import organization and sorting
+    "R",  # Refactoring opportunities (e.g., simplifying code)
+    "W",  # Warnings (e.g., unused variables, redundant code)
+    "B",  # Best practices (e.g., unnecessary parentheses, f-strings)
+    "Q",  # Encourages the use of f-strings for formatting
+    "RUF100",  # Ensures code is formatted with Black
+    "T",  # Type checking related issues
+    "U",  # Usage of deprecated or obsolete features
+#    "ALL"
+#    "FAST"
+]
+
+# Ignore specific rules that are not relevant or too strict for your project
+ignore = [
+    "E501",  # Ignore line length (if you prefer longer lines)
+    "RET504", # Ignore unused variables
+]
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+
+# Allow fix for all enabled rules (when `--fix` is provided).
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+# Enable auto-formatting of code examples in docstrings. Markdown,
+# reStructuredText code/literal blocks and doctests are all supported.
+#
+# This is currently disabled by default, but it is planned for this
+# to be opt-out in the future.
+docstring-code-format = false
+
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+#
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = "dynamic"

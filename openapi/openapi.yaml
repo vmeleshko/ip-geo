@@ -1,0 +1,135 @@
+openapi: 3.1.0
+info:
+  title: IP Geolocation Service
+  version: 0.1.0
+  description: >
+    OpenAPI specification for the IP geolocation microservice take-home test.
+servers:
+  - url: https://api.example.com
+    description: Production (example)
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /v1/ip/{ip}:
+    get:
+      summary: Look up geolocation information for a specific IP address.
+      operationId: getIpGeolocation
+      parameters:
+        - name: ip
+          in: path
+          required: true
+          description: IPv4 address to look up.
+          schema:
+            type: string
+            format: ipv4
+      responses:
+        "200":
+          description: Geolocation information for the requested IP.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IpGeolocationResponse"
+        "400":
+          description: Invalid IP address or bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No geolocation information found for this IP.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Upstream geolocation provider failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/ip/me:
+    get:
+      summary: Look up geolocation information for the calling client IP.
+      operationId: getClientIpGeolocation
+      responses:
+        "200":
+          description: Geolocation information for the caller IP.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IpGeolocationResponse"
+        "400":
+          description: Unable to determine client IP from the request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Upstream geolocation provider failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    IpGeolocationResponse:
+      type: object
+      description: Normalized geolocation information for an IP address.
+      properties:
+        ip:
+          type: string
+          format: ipv4
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+          example: "DE"
+        country_name:
+          type: string
+          example: "Germany"
+        region:
+          type: string
+          example: "Berlin"
+        city:
+          type: string
+          example: "Berlin"
+        latitude:
+          type: number
+          format: float
+          example: 52.5200
+        longitude:
+          type: number
+          format: float
+          example: 13.4050
+        timezone:
+          type: string
+          example: "Europe/Berlin"
+        isp:
+          type: string
+          example: "Example ISP GmbH"
+      required:
+        - ip
+        - country
+        - country_name
+        - latitude
+        - longitude
+
+    ErrorResponse:
+      type: object
+      description: Standard error response.
+      properties:
+        code:
+          type: string
+          example: "invalid_ip"
+        message:
+          type: string
+          example: "The supplied IP address is not a valid IPv4 address."
+        details:
+          type: object
+          additionalProperties: true
+          description: Optional structured error details.
+      required:
+        - code
+        - message
