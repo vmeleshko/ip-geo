@@ -43,6 +43,38 @@ The `isp` field in [`IpGeolocationData`](src/ipapi_client.py:10) represents the 
 - Supporting fraud detection and risk scoring based on network type.
 - Applying access policies (e.g. blocking known VPN/hosting ranges).
 
+**IP validation (IPv4 + IPv6)**
+
+For the public `/v1/ip/lookup` endpoint I validate the optional `ip` query parameter using
+Python's standard library `ipaddress` module, via a Pydantic field validator on
+[`IPLookupRequest`](src/main.py:21):
+
+- If `ip` is **missing**, `null`, or a blank string → it is normalized to `None` and the
+  service performs a **client IP lookup**, relying on ipapi.co's automatic detection.
+- If `ip` is non-empty → it must be a valid **IPv4 or IPv6** literal; otherwise the
+  validator raises an error and FastAPI returns a 422 validation response. In that case
+  the handler is never invoked and **no call is made** to the external geolocation
+  provider.
+
+This keeps the upstream integration clean (no unnecessary traffic for obviously bad
+inputs) and makes the API contract explicit: only syntactically valid IP addresses are
+accepted for explicit lookup.
+
+**TODO: Reserved / local IP handling**
+
+A future improvement is to short-circuit lookups for **reserved/local IP ranges** (e.g.
+`192.168.0.0/16`, `10.0.0.0/8`, `127.0.0.0/8`, link-local ranges, etc.) using the
+standard library `ipaddress` module:
+
+- If a client explicitly passes such an IP (e.g. `192.168.0.1`), the service can:
+  - Detect that it is a private or otherwise non-routable address.
+  - **Avoid calling** the external IP geolocation provider.
+  - Return a deterministic response or error, for example an error code like
+    `"reserved_ip"` with a message such as `"Reserved IP address"`.
+
+This would reduce unnecessary upstream calls and make the behavior for non-public IPs
+explicit and predictable.
+
 ## Production Readiness
 
 - TODO: List 5–10 things you would do next for production readiness (
