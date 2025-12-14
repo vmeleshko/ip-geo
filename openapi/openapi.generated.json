@@ -11,7 +11,7 @@
         "tags": [
           "health"
         ],
-        "summary": "Health",
+        "summary": "Health check",
         "description": "Basic health check endpoint.",
         "operationId": "health_health_get",
         "responses": {
@@ -20,11 +20,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "type": "object",
-                  "title": "Response Health Health Get"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             }
@@ -38,7 +34,7 @@
           "ip"
         ],
         "summary": "Look up geolocation information for an IP address.",
-        "description": "Look up geolocation information for either a specific IP or the caller's IP.\n\n- If `query.ip` is provided, that IP is used.\n- Otherwise, the client's IP is inferred from the request (e.g. `request.client.host`).",
+        "description": "Look up geolocation information for either a specific IP or the caller's IP.\n\n- If `query.ip` is provided, that IP is used.\n- Otherwise, the client's IP is inferred from the request (e.g. `request.client.host`).\n- If `query.provider` is provided, it selects which upstream provider to use.\n  If omitted, ipapi.co is used by default.",
         "operationId": "ip_lookup_v1_ip_lookup_get",
         "parameters": [
           {
@@ -55,6 +51,15 @@
                 }
               ],
               "title": "Ip"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Provider",
+              "default": "ipapi.co"
             }
           }
         ],
@@ -98,8 +103,25 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse",
+        "description": "Response model for the health check endpoint."
+      },
       "IPLookupResponse": {
         "properties": {
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
           "ip": {
             "type": "string",
             "title": "Ip"
@@ -192,12 +214,22 @@
         },
         "type": "object",
         "required": [
+          "provider",
           "ip",
           "country",
           "country_name"
         ],
         "title": "IPLookupResponse",
         "description": "Response model for IP geolocation lookup."
+      },
+      "Provider": {
+        "type": "string",
+        "enum": [
+          "ipapi.co",
+          "ip-api.com"
+        ],
+        "title": "Provider",
+        "description": "Supported IP geolocation providers."
       },
       "ValidationError": {
         "properties": {

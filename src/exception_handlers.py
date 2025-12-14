@@ -7,6 +7,15 @@ from pydantic import ValidationError
 from src.logger import logger
 
 
+def _get_provider_from_request(request: Request) -> str | None:
+    """Best-effort extraction of the provider value from the incoming request.
+
+    Currently this looks at the `provider` query parameter used by /v1/ip/lookup.
+    For other endpoints this will typically be None.
+    """
+    return request.query_params.get("provider")
+
+
 def _normalize_pydantic_errors(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Make sure Pydantic error dicts are JSON-serializable."""
     normalized: list[dict[str, Any]] = []
@@ -51,31 +60,29 @@ def _build_validation_error_payload(exc: ValidationError) -> dict:
 
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError) -> JSONResponse:
     """Handle Pydantic validation errors raised during dependency resolution."""
+    provider = _get_provider_from_request(request)
     logger.info(
-        "Pydantic validation error during request handling",
-        extra={
-            "path": request.url.path,
-            "method": request.method,
-            "errors": exc.errors(),
-        },
+        "Pydantic validation error during request handling "
+        f"path={request.url.path} method={request.method} provider={provider} errors={exc.errors()}"
     )
     payload = _build_validation_error_payload(exc)
+    payload["provider"] = provider
     return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=payload)
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all handler for unexpected errors to return a structured 500 response."""
+    provider = _get_provider_from_request(request)
     logger.exception(
-        f"Unhandled exception while processing request: {repr(exc)}",
-        extra={
-            "path": request.url.path,
-            "method": request.method,
-        },
+        "Unhandled exception while processing request: "
+        f"{repr(exc)} path={request.url.path} method={request.method} provider={provider}"
     )
+    content: dict[str, Any] = {
+        "code": "internal_error",
+        "message": "An unexpected error occurred while processing the request.",
+        "provider": provider,
+    }
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "code": "internal_error",
-            "message": "An unexpected error occurred while processing the request.",
-        },
+        content=content,
     )

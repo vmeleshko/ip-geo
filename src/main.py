@@ -23,6 +23,7 @@ app = FastAPI(
 logger.info("Started IP Geolocation Service")
 
 
+# TODO: move to the separate factory.py file
 class IpLookupProviderFactory:
     """Factory for IP lookup provider clients.
 

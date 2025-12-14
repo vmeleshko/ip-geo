@@ -39,9 +39,14 @@ paths:
       summary: Look up geolocation information for an IP address.
       operationId: ipLookup
       description: >
-        Perform an IP geolocation lookup. If an explicit IP address is provided
-        as a query parameter, that address is used. If it is omitted, the
-        service will use the calling client's IP address as seen by the API.
+        Perform an IP geolocation lookup.
+
+        - If an explicit IP address is provided as a query parameter, that
+          address is used.
+        - If `ip` is omitted or null, the service uses the calling client's IP
+          address as seen by the API.
+        - The optional `provider` parameter selects which upstream provider is
+          used for the lookup (defaults to ipapi.co).
       tags:
         - ip
       parameters:
@@ -49,8 +54,8 @@ paths:
           in: query
           required: false
           description: >
-            IPv4 or IPv6 address to look up. If not provided, the calling client's
-            IP address is used instead.
+            IPv4 or IPv6 address to look up. If not provided, the calling
+            client's IP address is used instead.
           schema:
             type: string
           examples:
@@ -61,63 +66,208 @@ paths:
               summary: Explicit IPv6 lookup
               value: "2001:4860:4860::8888"
             clientIp:
-              summary: Caller IP lookup
+              summary: Caller IP lookup (no explicit IP)
               value: null
+        - name: provider
+          in: query
+          required: false
+          description: >
+            Upstream IP geolocation provider to use for this lookup. If
+            omitted, the service defaults to ipapi.co.
+          schema:
+            type: string
+            enum:
+              - ipapi.co
+              - ip-api.com
+          examples:
+            defaultProvider:
+              summary: Use the default provider (ipapi.co)
+              value: "ipapi.co"
+            alternateProvider:
+              summary: Use ip-api.com as the provider
+              value: "ip-api.com"
       responses:
         "200":
           description: Geolocation information for the requested or calling IP.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/IpGeolocationResponse"
+                $ref: "#/components/schemas/IPLookupResponse"
+              examples:
+                explicitIpv4SuccessIpApiCo:
+                  summary: Successful explicit IPv4 lookup via ipapi.co
+                  value:
+                    provider: "ipapi.co"
+                    ip: "8.8.8.8"
+                    country: "US"
+                    country_name: "United States"
+                    region: "California"
+                    city: "Mountain View"
+                    postal_code: "94043"
+                    latitude: 37.386
+                    longitude: -122.0838
+                    timezone: "America/Los_Angeles"
+                    isp: "Google LLC"
+                explicitIpv4SuccessIpApiCom:
+                  summary: Successful explicit IPv4 lookup via ip-api.com
+                  value:
+                    provider: "ip-api.com"
+                    ip: "177.128.0.0"
+                    country: "BR"
+                    country_name: "Brazil"
+                    region: "Santa Catarina"
+                    city: "Chapecó"
+                    postal_code: "89800"
+                    latitude: -27.1003
+                    longitude: -52.6296
+                    timezone: "America/Sao_Paulo"
+                    isp: "Deznet Telecom Ltda."
+                explicitIpv6SuccessIpApiCom:
+                  summary: Successful explicit IPv6 lookup via ip-api.com
+                  value:
+                    provider: "ip-api.com"
+                    ip: "2001:4860:4860::8888"
+                    country: "CA"
+                    country_name: "Canada"
+                    region: "Quebec"
+                    city: "Montreal"
+                    postal_code: "H4X"
+                    latitude: 45.5019
+                    longitude: -73.5674
+                    timezone: "America/Toronto"
+                    isp: "Google LLC"
+                explicitIpv6SuccessIpApiCo:
+                  summary: Successful explicit IPv6 lookup via ipapi.co
+                  value:
+                    provider: "ipapi.co"
+                    ip: "2001:4860:4860::8888"
+                    country: "US"
+                    country_name: "United States"
+                    region: "California"
+                    city: "Mountain View"
+                    postal_code: "94043"
+                    latitude: 37.42301
+                    longitude: -122.083352
+                    timezone: "America/Los_Angeles"
+                    isp: "GOOGLE"
+                clientIpSuccess:
+                  summary: Successful client IP lookup
+                  value:
+                    provider: "ipapi.co"
+                    ip: "198.51.100.42"
+                    country: "DE"
+                    country_name: "Germany"
+                    region: null
+                    city: null
+                    postal_code: null
+                    latitude: 52.52
+                    longitude: 13.405
+                    timezone: "Europe/Berlin"
+                    isp: "Example ISP GmbH"
         "400":
           description: Invalid or reserved IP address, or malformed request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: object
+                properties:
+                  detail:
+                    $ref: "#/components/schemas/ErrorResponse"
+                required:
+                  - detail
               examples:
                 invalidIp:
-                  summary: Invalid IP address
+                  summary: Invalid IP address (ipapi.co)
                   value:
-                    code: "invalid_ip"
-                    message: "The supplied IP address is not a valid IPv4 or IPv6 address."
-                reservedIp:
-                  summary: Reserved/private IP address
+                    detail:
+                      code: "invalid_ip"
+                      message: "The supplied IP address is not a valid IPv4 or IPv6 address."
+                      provider: "ipapi.co"
+                reservedIpIpApiCo:
+                  summary: Reserved/private IP address (ipapi.co)
                   value:
-                    code: "reserved_ip"
-                    message: "The supplied IP address is reserved/private and cannot be geolocated."
+                    detail:
+                      code: "reserved_ip"
+                      message: "Reserved IP Address"
+                      provider: "ipapi.co"
+                reservedIpIpApiCom:
+                  summary: Reserved/private IP address (ip-api.com)
+                  value:
+                    detail:
+                      code: "reserved_ip"
+                      message: "reserved range"
+                      provider: "ip-api.com"
         "404":
           description: No geolocation information found for this IP.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: object
+                properties:
+                  detail:
+                    $ref: "#/components/schemas/ErrorResponse"
+                required:
+                  - detail
               examples:
                 notFound:
                   summary: IP not found
                   value:
-                    code: "ip_not_found"
-                    message: "No geolocation information found for this IP address."
+                    detail:
+                      code: "ip_not_found"
+                      message: "No geolocation information found for this IP address."
+                      provider: "ipapi.co"
         "502":
           description: Upstream geolocation provider failed.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: object
+                properties:
+                  detail:
+                    $ref: "#/components/schemas/ErrorResponse"
+                required:
+                  - detail
               examples:
                 upstreamError:
                   summary: Upstream provider error
                   value:
-                    code: "upstream_error"
-                    message: "IP provider returned HTTP 500: Internal Server Error"
+                    detail:
+                      code: "upstream_error"
+                      message: "IP provider returned HTTP 500: Internal Server Error"
+                      provider: "ip-api.com"
+        "422":
+          description: Request validation error (e.g. invalid `provider` enum value).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+              examples:
+                invalidProviderEnum:
+                  summary: Invalid provider value
+                  value:
+                    detail:
+                      - type: "enum"
+                        loc:
+                          - "query"
+                          - "provider"
+                        msg: "Input should be 'ipapi.co' or 'ip-api.com'"
+                        input: "ABC"
+                        ctx:
+                          expected: "'ipapi.co' or 'ip-api.com'"
 
 components:
   schemas:
     IPLookupRequest:
       type: object
       description: >
-        Request body for IP geolocation lookup. If `ip` is provided, that IP is
+        Internal request model used to validate the `ip` and `provider` query
+        parameters for IP geolocation lookup. If `ip` is provided, that IP is
         looked up. If it is omitted or null, the service uses the calling
         client's IP address.
       properties:
@@ -128,11 +278,29 @@ components:
             IPv4 or IPv6 address to look up. If null or omitted, the calling
             client's IP is used instead.
           example: "8.8.8.8"
-
-    IpGeolocationResponse:
+        provider:
+          type: string
+          description: >
+            Upstream provider to use for this lookup. If omitted, defaults to
+            ipapi.co.
+          enum:
+            - ipapi.co
+            - ip-api.com
+          example: "ipapi.co"
+ 
+    IPLookupResponse:
       type: object
-      description: Normalized geolocation information for an IP address.
+      description: >
+        Normalized geolocation information for an IP address, including the
+        upstream provider that was used to resolve it.
       properties:
+        provider:
+          type: string
+          description: Upstream provider that served this lookup.
+          enum:
+            - ipapi.co
+            - ip-api.com
+          example: "ipapi.co"
         ip:
           type: string
           description: IPv4 or IPv6 address that was resolved.
@@ -168,28 +336,34 @@ components:
           type: string
           example: "Example ISP GmbH"
       required:
+        - provider
         - ip
         - country
         - country_name
         - latitude
         - longitude
-
+ 
     ErrorResponse:
       type: object
-      description: Standard error response.
+      description: >
+        Standard error response for generic errors (e.g. validation failures or
+        unexpected internal errors). Used by global exception handlers.
       properties:
         code:
           type: string
-          example: "invalid_ip"
+          example: "internal_error"
         message:
           type: string
-          example: "The supplied IP address is not a valid IPv4 or IPv6 address."
-        details:
-          type: array
-          description: Optional structured error details (e.g. validation error list).
-          items:
-            type: object
-            additionalProperties: true
+          example: "An unexpected error occurred while processing the request."
+        provider:
+          type: string
+          description: >
+            Upstream provider associated with this request, when applicable.
+            Present for endpoints that accept a `provider` query parameter.
+          enum:
+            - ipapi.co
+            - ip-api.com
+          example: "ipapi.co"
       required:
         - code
         - message
