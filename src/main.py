@@ -9,14 +9,16 @@ from src.exception_handlers import (
     pydantic_validation_exception_handler,
     unhandled_exception_handler,
 )
+from src.logger import logger
 from src.models.request_models import IPLookupRequest
-from src.models.response_models import IPLookupResponse
+from src.models.response_models import HealthResponse, IPLookupResponse
 
 app = FastAPI(
     title="IP Geolocation Service",
     version="0.1.0",
     description="IP geolocation microservice for the take-home test.",
 )
+logger.info("Started IP Geolocation Service")
 
 
 def get_ipapi_client() -> IpapiClient:
@@ -32,10 +34,16 @@ app.add_exception_handler(ValidationError, pydantic_validation_exception_handler
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
-@app.get("/health", tags=["health"])
-async def health() -> dict[str, str]:
+@app.get(
+    "/health",
+    tags=["health"],
+    response_model=HealthResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Health check",
+)
+async def health() -> HealthResponse:
     """Basic health check endpoint."""
-    return {"status": "ok"}
+    return HealthResponse(status="ok")
 
 
 @app.get(
@@ -58,28 +66,78 @@ async def ip_lookup(
     ip = query.ip
     try:
         if ip:
+            logger.info(
+                "Performing explicit IP lookup",
+                extra={
+                    "path": request.url.path,
+                    "method": request.method,
+                    "ip": ip,
+                },
+            )
             data: IPGeolocationData = await client.lookup_ip(ip)
         else:
+            logger.info(
+                "Performing client IP lookup",
+                extra={
+                    "path": request.url.path,
+                    "method": request.method,
+                },
+            )
             # For simplicity, rely on ipapi.co's automatic client IP detection.
             # In a real deployment behind a proxy/load balancer you would typically
             # also inspect X-Forwarded-For or similar headers.
             data = await client.lookup_client_ip()
     except InvalidIpError as exc:
+        logger.info(
+            "Invalid IP error during lookup",
+            extra={
+                "path": request.url.path,
+                "method": request.method,
+                "ip": ip,
+                "error": str(exc),
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "invalid_ip", "message": str(exc)},
         ) from exc
     except ReservedIpError as exc:
+        logger.info(
+            "Reserved/private IP used for lookup",
+            extra={
+                "path": request.url.path,
+                "method": request.method,
+                "ip": ip,
+                "error": str(exc),
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "reserved_ip", "message": str(exc)},
         ) from exc
     except IpNotFoundError as exc:
+        logger.info(
+            "No geolocation information found for IP",
+            extra={
+                "path": request.url.path,
+                "method": request.method,
+                "ip": ip,
+                "error": str(exc),
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "ip_not_found", "message": str(exc)},
         ) from exc
     except UpstreamServiceError as exc:
+        logger.exception(
+            "Upstream IP provider error during lookup",
+            extra={
+                "path": request.url.path,
+                "method": request.method,
+                "ip": ip,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"code": "upstream_error", "message": str(exc)},
