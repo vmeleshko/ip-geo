@@ -7,32 +7,7 @@ import pytest
 
 from src.clients.ip_api_co_client import IpApiCo, IPGeolocationData
 from src.errors import InvalidIpError, IpNotFoundError, ReservedIpError, UpstreamServiceError
-
-
-class MockResponse:
-    def __init__(self, status_code: int, payload: dict[str, Any] | None = None, text: str = "") -> None:
-        self.status_code = status_code
-        self._payload = payload or {}
-        self.text = text
-
-    def json(self) -> dict[str, Any]:
-        return self._payload
-
-
-class MockAsyncClient:
-    """Minimal async context-manager mock for httpx.AsyncClient."""
-
-    def __init__(self, response: MockResponse) -> None:
-        self._response = response
-
-    async def __aenter__(self) -> "MockAsyncClient":
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb) -> None:
-        return None
-
-    async def get(self, url: str) -> MockResponse:
-        return self._response
+from tests.common import FailingAsyncClient, MockAsyncClient, MockResponse
 
 
 def make_fake_async_client(response: MockResponse) -> Callable[..., MockAsyncClient]:
@@ -229,21 +204,9 @@ async def test_get_geolocation_for_ip_network_failure_raises_upstream_service_er
 ) -> None:
     """Network failures from httpx.AsyncClient are mapped to UpstreamServiceError."""
 
-    class FailingAsyncClient:
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            pass
-
-        async def __aenter__(self) -> "FailingAsyncClient":
-            request = httpx.Request("GET", "https://ipapi.co")
-            raise httpx.RequestError("Network failure", request=request)
-
-        async def __aexit__(self, exc_type, exc, tb) -> None:
-            return None
-
-        async def get(self, url: str) -> MockResponse:
-            return MockResponse(status_code=HTTPStatus.OK, payload={})
-
-    monkeypatch.setattr(httpx, "AsyncClient", FailingAsyncClient)
+    monkeypatch.setattr(
+        httpx, "AsyncClient", lambda *args, **kwargs: FailingAsyncClient("https://ipapi.co", *args, **kwargs)
+    )
 
     client = IpApiCo()
     with pytest.raises(UpstreamServiceError):

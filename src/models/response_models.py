@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from src.models.request_models import Provider
+
 
 class HealthResponse(BaseModel):
     """Response model for the health check endpoint."""
@@ -10,6 +12,7 @@ class HealthResponse(BaseModel):
 class IPLookupResponse(BaseModel):
     """Response model for IP geolocation lookup."""
 
+    provider: Provider
     ip: str
     country: str
     country_name: str
