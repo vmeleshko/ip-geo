@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from src.errors import InvalidIpError, IpNotFoundError, ReservedIpError, UpstreamServiceError
-from src.main import app, get_ipapi_client
+from src.main import app, get_ipapi_co_client
 
 
 class _ErrorRaisingClient:
@@ -19,7 +19,7 @@ class _ErrorRaisingClient:
 
 def _call_lookup_with_error(exc: Exception) -> tuple[int, dict]:
     """Helper that wires a failing client and calls the /v1/ip/lookup endpoint."""
-    app.dependency_overrides[get_ipapi_client] = lambda: _ErrorRaisingClient(exc)
+    app.dependency_overrides[get_ipapi_co_client] = lambda: _ErrorRaisingClient(exc)
     client = TestClient(app)
     try:
         response = client.get("/v1/ip/lookup?ip=8.8.8.8")

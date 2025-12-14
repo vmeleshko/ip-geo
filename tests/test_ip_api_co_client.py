@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 import pytest
 
-from src.clients.ipapi_client import IpapiClient, IPGeolocationData
+from src.clients.ip_api_co_client import IpApiCo, IPGeolocationData
 from src.errors import InvalidIpError, IpNotFoundError, ReservedIpError, UpstreamServiceError
 
 
@@ -65,7 +65,7 @@ async def test_get_geolocation_for_ip_success(monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setattr(httpx, "AsyncClient", make_fake_async_client(response))
 
-    client = IpapiClient()
+    client = IpApiCo()
     result = await client.lookup_ip("8.8.8.8")
 
     assert isinstance(result, IPGeolocationData)
@@ -89,7 +89,7 @@ async def test_get_geolocation_for_ip_invalid_ip_error(monkeypatch: pytest.Monke
 
     monkeypatch.setattr(httpx, "AsyncClient", make_fake_async_client(response))
 
-    client = IpapiClient()
+    client = IpApiCo()
     with pytest.raises(InvalidIpError):
         await client.lookup_ip("999.999.999.999")
 
@@ -101,7 +101,7 @@ async def test_get_geolocation_for_ip_not_found(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(httpx, "AsyncClient", make_fake_async_client(response))
 
-    client = IpapiClient()
+    client = IpApiCo()
     with pytest.raises(IpNotFoundError):
         await client.lookup_ip("203.0.113.10")
 
@@ -117,7 +117,7 @@ async def test_get_geolocation_for_ip_upstream_5xx(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(httpx, "AsyncClient", make_fake_async_client(response))
 
-    client = IpapiClient()
+    client = IpApiCo()
     with pytest.raises(UpstreamServiceError):
         await client.lookup_ip("8.8.4.4")
 
@@ -136,7 +136,7 @@ async def test_get_geolocation_for_client_ip(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr(httpx, "AsyncClient", make_fake_async_client(response))
 
-    client = IpapiClient()
+    client = IpApiCo()
     result = await client.lookup_client_ip()
 
     assert result.ip == "198.51.100.42"
@@ -155,7 +155,7 @@ async def test_get_geolocation_for_ip_reserved_ip_error(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(httpx, "AsyncClient", make_fake_async_client(response))
 
-    client = IpapiClient()
+    client = IpApiCo()
     with pytest.raises(ReservedIpError):
         await client.lookup_ip("192.168.0.1")
 
@@ -178,7 +178,7 @@ async def test_get_geolocation_for_ip_http_error_statuses_raise_upstream_service
 
     monkeypatch.setattr(httpx, "AsyncClient", make_fake_async_client(response))
 
-    client = IpapiClient()
+    client = IpApiCo()
     with pytest.raises(UpstreamServiceError):
         await client.lookup_ip("8.8.8.8")
 
@@ -192,7 +192,7 @@ async def test_get_geolocation_for_ip_http_429_raises_upstream_service_error(
 
     monkeypatch.setattr(httpx, "AsyncClient", make_fake_async_client(response))
 
-    client = IpapiClient()
+    client = IpApiCo()
     with pytest.raises(UpstreamServiceError):
         await client.lookup_ip("8.8.8.8")
 
@@ -205,7 +205,7 @@ async def test_get_geolocation_for_ip_json_rate_limited_error(monkeypatch: pytes
 
     monkeypatch.setattr(httpx, "AsyncClient", make_fake_async_client(response))
 
-    client = IpapiClient()
+    client = IpApiCo()
     with pytest.raises(UpstreamServiceError):
         await client.lookup_ip("8.8.8.8")
 
@@ -218,7 +218,7 @@ async def test_get_geolocation_for_ip_json_quota_exceeded_error(monkeypatch: pyt
 
     monkeypatch.setattr(httpx, "AsyncClient", make_fake_async_client(response))
 
-    client = IpapiClient()
+    client = IpApiCo()
     with pytest.raises(UpstreamServiceError):
         await client.lookup_ip("8.8.8.8")
 
@@ -245,6 +245,6 @@ async def test_get_geolocation_for_ip_network_failure_raises_upstream_service_er
 
     monkeypatch.setattr(httpx, "AsyncClient", FailingAsyncClient)
 
-    client = IpapiClient()
+    client = IpApiCo()
     with pytest.raises(UpstreamServiceError):
         await client.lookup_ip("8.8.8.8")

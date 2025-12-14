@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from pydantic import ValidationError
 
-from src.clients.ipapi_client import IpapiClient, IPGeolocationData
+from src.clients.ip_api_co_client import IpApiCo, IPGeolocationData
 from src.errors import InvalidIpError, IpNotFoundError, ReservedIpError, UpstreamServiceError
 from src.exception_handlers import (
     pydantic_validation_exception_handler,
@@ -21,12 +21,12 @@ app = FastAPI(
 logger.info("Started IP Geolocation Service")
 
 
-def get_ipapi_client() -> IpapiClient:
-    """Dependency to provide an IpapiClient instance.
+def get_ipapi_co_client() -> IpApiCo:
+    """Dependency to provide an IpApiCo client instance.
 
     Kept simple for this exercise; in a larger app this could be wired via settings.
     """
-    return IpapiClient()
+    return IpApiCo()
 
 
 # Register global exception handlers using the shared handlers module.
@@ -56,7 +56,7 @@ async def health() -> HealthResponse:
 async def ip_lookup(
     request: Request,
     query: Annotated[IPLookupRequest, Depends()],
-    client: Annotated[IpapiClient, Depends(get_ipapi_client)],
+    client: Annotated[IpApiCo, Depends(get_ipapi_co_client)],
 ) -> IPLookupResponse:
     """Look up geolocation information for either a specific IP or the caller's IP.
 
