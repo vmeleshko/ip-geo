@@ -15,3 +15,16 @@ repos:
       # Run the formatter.
       - id: ruff-format
         types_or: [ python, pyi ]
+
+  # Local hooks that rely on the project environment.
+  - repo: local
+    hooks:
+      - id: pytest-with-coverage-via-uv
+        name: Run pytest with coverage via uv
+        entry: bash
+        language: system
+        args:
+          - -c
+          - uv run coverage run -m pytest && uv run coverage report -m
+        pass_filenames: false
+        stages: [commit]

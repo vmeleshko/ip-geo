@@ -71,7 +71,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/IpGeolocationResponse"
         "400":
-          description: Invalid IP address or bad request.
+          description: Invalid or reserved IP address, or malformed request.
           content:
             application/json:
               schema:
@@ -81,7 +81,12 @@ paths:
                   summary: Invalid IP address
                   value:
                     code: "invalid_ip"
-                    message: "The supplied IP address is not a valid IPv4 address."
+                    message: "The supplied IP address is not a valid IPv4 or IPv6 address."
+                reservedIp:
+                  summary: Reserved/private IP address
+                  value:
+                    code: "reserved_ip"
+                    message: "The supplied IP address is reserved/private and cannot be geolocated."
         "404":
           description: No geolocation information found for this IP.
           content:
@@ -118,11 +123,10 @@ components:
       properties:
         ip:
           type: string
-          format: ipv4
           nullable: true
           description: >
-            IPv4 address to look up. If null or omitted, the calling client's IP
-            is used instead.
+            IPv4 or IPv6 address to look up. If null or omitted, the calling
+            client's IP is used instead.
           example: "8.8.8.8"
 
     IpGeolocationResponse:

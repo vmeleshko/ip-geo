@@ -53,7 +53,6 @@ uv run uvicorn src.main:app --reload
 By default, the app listens on `http://127.0.0.1:8000`.
 
 - Interactive docs (Swagger UI): `http://127.0.0.1:8000/docs`
-- ReDoc docs: `http://127.0.0.1:8000/redoc`
 
 ## Tests
 
@@ -67,6 +66,24 @@ Run the test suite **with coverage**:
 
 ```bash
 uv run coverage run -m pytest && uv run coverage report -m
+```
+
+### Tests on every commit (pre-commit)
+
+This project is configured so that unit tests with coverage run automatically on each commit via [`pre-commit`](.pre-commit-config.yaml:1):
+
+- The local hook runs:
+
+  ```bash
+  uv run coverage run -m pytest && uv run coverage report -m
+  ```
+
+- Commits are blocked if tests or coverage fail.
+
+To enable the hooks locally:
+
+```bash
+uv run pre-commit install
 ```
 
 ## Code quality
