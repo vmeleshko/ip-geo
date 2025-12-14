@@ -41,7 +41,7 @@
       - Creates the `FastAPI` app instance.
       - Registers global exception handlers from [`src/exception_handlers.py`](src/exception_handlers.py:1).
       - Wires the IP lookup endpoint `/v1/ip/lookup`.
-      - Provides the `get_ipapi_client` dependency for injecting [`IpapiClient`](src/clients/ipapi_client.py:1).
+      - Uses an `IpLookupProviderFactory` (via dependency injection) to select and construct the concrete upstream IP lookup client based on the `provider` query parameter (defaulting to ipapi.co).
     - [`src/errors.py`](src/errors.py:1) – domain-specific exception types:
       - `InvalidIpError`, `ReservedIpError`, `IpNotFoundError`, `UpstreamServiceError`.
       - Used by the client layer to describe provider failures in a structured way.
@@ -50,14 +50,19 @@
       - Adds a catch‑all 500 JSON error payload for truly unhandled exceptions.
     - [`src/clients/`](src/clients/__init__.py:1) – external integration layer:
       - [`src/clients/base.py`](src/clients/base.py:1) – abstract base client defining the interface for IP lookup providers (`lookup_ip`, `lookup_client_ip`).
-      - [`src/clients/ipapi_client.py`](src/clients/ipapi_client.py:1) – concrete async client for `ipapi.co`:
+      - [`src/clients/ip_api_co_client.py`](src/clients/ip_api_co_client.py:1) – concrete async client for **ipapi.co**:
         - Uses `httpx.AsyncClient`.
         - Normalizes responses into [`IPGeolocationData`](src/models/common.py:1).
         - Translates provider HTTP / JSON errors into the domain errors in [`src/errors.py`](src/errors.py:1).
+      - [`src/clients/ip_api_com_client.py`](src/clients/ip_api_com_client.py:1) – concrete async client for **ip-api.com**:
+        - Uses `httpx.AsyncClient`.
+        - Maps the `status` / `message` semantics of ip-api.com into the same domain errors (`InvalidIpError`, `ReservedIpError`, `IpNotFoundError`, `UpstreamServiceError`).
+        - Normalizes fields like `query`, `countryCode`, `regionName`, `lat`/`lon` into [`IPGeolocationData`](src/models/common.py:1).
       - [`src/clients/__init__.py`](src/clients/__init__.py:1) – package marker for `src.clients`.
     - [`src/models/`](src/models/common.py:1) – Pydantic v2 models:
       - [`src/models/request_models.py`](src/models/request_models.py:1) – request-side models:
         - `IPLookupRequest` with validation for the optional `ip` query parameter, including IPv4/IPv6 validation and normalization of blank strings to `None`.
+        - A `provider` enum field (`Provider`) that allows selecting `"ipapi-co"` or `"ip-api-com"` and rejects any other value at validation time (e.g. a dummy provider string).
       - [`src/models/response_models.py`](src/models/response_models.py:1) – outward-facing response models:
         - `IPLookupResponse` which represents the API response for `/v1/ip/lookup`.
       - [`src/models/common.py`](src/models/common.py:1) – internal, provider‑agnostic model:
@@ -66,8 +71,8 @@
   - Tests (`tests/`):
     - [`tests/test_ip_lookup_request.py`](tests/test_ip_lookup_request.py:1) – unit tests for `IPLookupRequest`:
       - Valid IPv4/IPv6, handling of blank/None, and invalid IP validation behavior.
-    - [`tests/test_ipapi_client.py`](tests/test_ipapi_client.py:1) – unit tests for [`IpapiClient`](src/clients/ipapi_client.py:1):
-      - Happy-path lookups for explicit IP and client IP.
+    - [`tests/test_ipapi_client.py`](tests/test_ipapi_client.py:1) – unit tests for [`IpApiCo`](src/clients/ip_api_co_client.py:1):
+      - Happy-path lookups for explicit IP and client IP against the ipapi.co provider.
       - Error mapping for invalid IP, reserved IP, not found (404), upstream failures (400/403/405/429/5xx, rate‑limit/quota, network errors).
     - [`tests/test_main_api.py`](tests/test_main_api.py:1) – endpoint‑level tests using `TestClient`:
       - Verifies that each domain error maps to the expected HTTP status and error `code` (`invalid_ip`, `reserved_ip`, `ip_not_found`, `upstream_error`).
@@ -137,16 +142,16 @@
 
 ## Third-party API / Database Selection
 
-I chose **ipapi.co** as the external IP geolocation provider.
+I chose **ipapi.co** as the primary external IP geolocation provider, and later added **ip-api.com** as an alternative to demonstrate a pluggable provider architecture.
 
 **Reasons:**
 
-- **Generous free tier for a take-home**: up to **30,000 free lookups per month**, with a hard cap of **1,000 requests per 24 hours**. This is more than enough for local development and reviewer testing.
+- **Generous free tier for a take-home**: up to **30,000 free lookups per month**, with a hard cap of **1,000 requests per 24 hours** for ipapi.co. This is more than enough for local development and reviewer testing.
 - **No mandatory API key for basic usage**: the public `/json/` endpoints work without authentication, which keeps the initial setup simple. An API key can be added later if needed.
-- **Straightforward JSON schema**: the response includes most of the fields we care about (IP, country, region, city, coordinates, timezone, organisation/ISP) so the normalization logic in [`IpGeolocationData`](src/ipapi_client.py:10) is relatively small.
-- **Mature hosted API**: avoids the overhead of managing and periodically updating a local GeoIP database for the purposes of this exercise. In a production system, we could still swap this out for a local database-backed provider behind the same interface.
+- **Straightforward JSON schema**: the response includes most of the fields we care about (IP, country, region, city, coordinates, timezone, organisation/ISP) so the normalization logic in [`IPGeolocationData`](src/models/common.py:1) is relatively small.
+- **Mature hosted APIs**: avoids the overhead of managing and periodically updating a local GeoIP database for the purposes of this exercise. In a production system, we could still swap this out for a local database-backed provider behind the same interface.
 
-The dedicated client [`IpapiClient`](src/ipapi_client.py:43) wraps ipapi.co using `httpx.AsyncClient` and returns a normalized Pydantic v2 model [`IpGeolocationData`](src/ipapi_client.py:10). Error conditions (invalid IP, not found, upstream failures) are mapped to explicit exceptions (`InvalidIpError`, `IpNotFoundError`, `UpstreamServiceError`), so the FastAPI layer can translate them into consistent HTTP responses.
+The dedicated clients [`IpApiCo`](src/clients/ip_api_co_client.py:1) and [`IpApiCom`](src/clients/ip_api_com_client.py:1) both use `httpx.AsyncClient` and return a normalized Pydantic v2 model [`IPGeolocationData`](src/models/common.py:1). Error conditions (invalid IP, reserved/private IP, not found, upstream failures, quota/limit exceeded) are mapped to explicit exceptions (`InvalidIpError`, `ReservedIpError`, `IpNotFoundError`, `UpstreamServiceError`), so the FastAPI layer can translate them into consistent HTTP responses regardless of the upstream provider.
 
 **Organisation / ISP field**
 
@@ -156,11 +161,11 @@ The `isp` field in [`IpGeolocationData`](src/ipapi_client.py:10) represents the 
 - Supporting fraud detection and risk scoring based on network type.
 - Applying access policies (e.g. blocking known VPN/hosting ranges).
 
-**IP validation (IPv4 + IPv6)**
+**IP validation (IPv4 + IPv6) and provider selection**
 
 For the public `/v1/ip/lookup` endpoint I validate the optional `ip` query parameter using
 Python's standard library `ipaddress` module, via a Pydantic field validator on
-[`IPLookupRequest`](src/main.py:21):
+[`IPLookupRequest`](src/models/request_models.py:6):
 
 - If `ip` is **missing**, `null`, or a blank string → it is normalized to `None` and the
   service performs a **client IP lookup**, relying on ipapi.co's automatic detection.
@@ -172,6 +177,22 @@ Python's standard library `ipaddress` module, via a Pydantic field validator on
 This keeps the upstream integration clean (no unnecessary traffic for obviously bad
 inputs) and makes the API contract explicit: only syntactically valid IP addresses are
 accepted for explicit lookup.
+
+Additionally, `IPLookupRequest` includes a `provider` enum field that allows callers to select
+which upstream provider to use:
+
+- If `provider` is **omitted** or `null` → Pydantic applies the default and the service uses
+  **ipapi.co** as the **default lookup IP provider**.
+- If `provider` is `"ip-api-com"` → the factory uses the **ip-api.com** client.
+- If `provider` is any other string → Pydantic raises a validation error before the handler
+  runs, so invalid/dummy providers are rejected cleanly as 422s.
+
+Provider selection is implemented in [`IpLookupProviderFactory`](src/main.py:24), which is
+injected into the endpoint via FastAPI's dependency system. The factory maintains a mapping
+from `Provider` enum values (e.g. `"ipapi-co"`, `"ip-api-com"`) to concrete client classes
+(e.g. [`IpApiCo`](src/clients/ip_api_co_client.py:1), [`IpApiCom`](src/clients/ip_api_com_client.py:1)) and,
+when called, returns a configured `BaseIPLookupClient` instance. This keeps the endpoint thin and
+decoupled from the construction and configuration details of individual providers.
 
 **TODO: Reserved / local IP handling**
 

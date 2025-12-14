@@ -3,14 +3,16 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from pydantic import ValidationError
 
+from src.clients.base import BaseIPLookupClient
 from src.clients.ip_api_co_client import IpApiCo, IPGeolocationData
+from src.clients.ip_api_com_client import IpApiCom
 from src.errors import InvalidIpError, IpNotFoundError, ReservedIpError, UpstreamServiceError
 from src.exception_handlers import (
     pydantic_validation_exception_handler,
     unhandled_exception_handler,
 )
 from src.logger import logger
-from src.models.request_models import IPLookupRequest
+from src.models.request_models import IPLookupRequest, Provider
 from src.models.response_models import HealthResponse, IPLookupResponse
 
 app = FastAPI(
@@ -21,12 +23,25 @@ app = FastAPI(
 logger.info("Started IP Geolocation Service")
 
 
-def get_ipapi_co_client() -> IpApiCo:
-    """Dependency to provide an IpApiCo client instance.
+class IpLookupProviderFactory:
+    """Factory for IP lookup provider clients.
 
-    Kept simple for this exercise; in a larger app this could be wired via settings.
+    Given a Provider enum, returns a concrete client instance.
     """
-    return IpApiCo()
+
+    PROVIDERS_MAP: dict[Provider, type[BaseIPLookupClient]] = {
+        Provider.ipapi_co: IpApiCo,
+        Provider.ip_api_com: IpApiCom,
+    }
+
+    def __call__(self, provider: Provider) -> BaseIPLookupClient:
+        client_cls = self.PROVIDERS_MAP[provider]
+        return client_cls()
+
+
+def get_ip_lookup_provider_factory() -> IpLookupProviderFactory:
+    """Dependency to provide an IpLookupProviderFactory instance."""
+    return IpLookupProviderFactory()
 
 
 # Register global exception handlers using the shared handlers module.
@@ -56,18 +71,27 @@ async def health() -> HealthResponse:
 async def ip_lookup(
     request: Request,
     query: Annotated[IPLookupRequest, Depends()],
-    client: Annotated[IpApiCo, Depends(get_ipapi_co_client)],
+    provider_factory: Annotated[IpLookupProviderFactory, Depends(get_ip_lookup_provider_factory)],
 ) -> IPLookupResponse:
     """Look up geolocation information for either a specific IP or the caller's IP.
 
     - If `query.ip` is provided, that IP is used.
     - Otherwise, the client's IP is inferred from the request (e.g. `request.client.host`).
+    - If `query.provider` is provided, it selects which upstream provider to use.
+      If omitted, ipapi.co is used by default.
     """
     ip = query.ip
+    provider = query.provider
+    ip_lookup_client = provider_factory(provider)
+
     try:
         if ip:
-            logger.info(f"Performing explicit IP lookup path={request.url.path} method={request.method} ip={ip}")
-            data: IPGeolocationData = await client.lookup_ip(ip)
+            logger.info(
+                "Performing explicit IP lookup "
+                f"path={request.url.path} method={request.method} ip={ip} "
+                f"provider={provider}"
+            )
+            data: IPGeolocationData = await ip_lookup_client.lookup_ip(ip)
         else:
             # Automatically detect the client's IP address from the request.
             client_host = request.client.host if request.client else None
@@ -75,15 +99,17 @@ async def ip_lookup(
             logger.info(
                 "Performing client IP lookup "
                 f"path={request.url.path} method={request.method} "
-                f"client_ip={client_host} x_forwarded_for={x_forwarded_for}"
+                f"client_ip={client_host} x_forwarded_for={x_forwarded_for} "
+                f"provider={provider}"
             )
-            # For simplicity, rely on ipapi.co's automatic client IP detection.
+            # For simplicity, rely on the provider's automatic client IP detection.
             # In a real deployment behind a proxy/load balancer you would typically
             # also inspect X-Forwarded-For or similar headers more carefully.
-            data = await client.lookup_client_ip()
+            data = await ip_lookup_client.lookup_client_ip()
     except InvalidIpError as exc:
         logger.error(
-            f"Invalid IP error during lookup path={request.url.path} method={request.method} ip={ip} error={exc}"
+            "Invalid IP error during lookup "
+            f"path={request.url.path} method={request.method} ip={ip} provider={provider} error={exc}"
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -91,7 +117,8 @@ async def ip_lookup(
         ) from exc
     except ReservedIpError as exc:
         logger.error(
-            f"Reserved/private IP used for lookup path={request.url.path} method={request.method} ip={ip} error={exc}"
+            "Reserved/private IP used for lookup "
+            f"path={request.url.path} method={request.method} ip={ip} provider={provider} error={exc}"
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -100,7 +127,7 @@ async def ip_lookup(
     except IpNotFoundError as exc:
         logger.error(
             "No geolocation information found for IP "
-            f"path={request.url.path} method={request.method} ip={ip} error={exc}"
+            f"path={request.url.path} method={request.method} ip={ip} provider={provider} error={exc}"
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -109,7 +136,7 @@ async def ip_lookup(
     except UpstreamServiceError as exc:
         logger.exception(
             "Upstream IP provider error during lookup "
-            f"path={request.url.path} method={request.method} ip={ip} error={exc}"
+            f"path={request.url.path} method={request.method} ip={ip} provider={provider} error={exc}"
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -118,6 +145,7 @@ async def ip_lookup(
 
     # Map IpGeolocationData to the outward-facing response model.
     return IPLookupResponse(
+        provider=provider,
         ip=data.ip,
         country=data.country,
         country_name=data.country_name,

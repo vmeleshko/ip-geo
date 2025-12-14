@@ -42,7 +42,7 @@ class IpApiCo(BaseIPLookupClient):
             async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
                 response = await client.get(url)
         except httpx.RequestError as exc:
-            raise UpstreamServiceError(f"Request to IP provider failed: {exc}") from exc
+            raise UpstreamServiceError(f"Request to IP provider failed: {repr(exc)}") from exc
 
         self._handle_http_errors(response)
 
