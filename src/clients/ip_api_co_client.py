@@ -8,7 +8,7 @@ from src.errors import InvalidIpError, IpNotFoundError, ReservedIpError, Upstrea
 from src.models.common import IPGeolocationData
 
 
-class IpapiClient(BaseIPLookupClient):
+class IpApiCo(BaseIPLookupClient):
     """Client for the https://ipapi.co/ IP geolocation API.
 
     This client is intentionally minimal and focused on the subset of fields
