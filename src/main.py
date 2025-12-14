@@ -113,7 +113,11 @@ async def ip_lookup(
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "invalid_ip", "message": str(exc)},
+            detail={
+                "code": "invalid_ip",
+                "message": str(exc),
+                "provider": provider,
+            },
         ) from exc
     except ReservedIpError as exc:
         logger.error(
@@ -122,7 +126,11 @@ async def ip_lookup(
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "reserved_ip", "message": str(exc)},
+            detail={
+                "code": "reserved_ip",
+                "message": str(exc),
+                "provider": provider,
+            },
         ) from exc
     except IpNotFoundError as exc:
         logger.error(
@@ -131,7 +139,11 @@ async def ip_lookup(
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "ip_not_found", "message": str(exc)},
+            detail={
+                "code": "ip_not_found",
+                "message": str(exc),
+                "provider": provider,
+            },
         ) from exc
     except UpstreamServiceError as exc:
         logger.exception(
@@ -140,7 +152,11 @@ async def ip_lookup(
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={"code": "upstream_error", "message": str(exc)},
+            detail={
+                "code": "upstream_error",
+                "message": str(exc),
+                "provider": provider,
+            },
         ) from exc
 
     # Map IpGeolocationData to the outward-facing response model.
