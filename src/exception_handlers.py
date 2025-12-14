@@ -4,6 +4,8 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
+from src.logger import logger
+
 
 def _normalize_pydantic_errors(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Make sure Pydantic error dicts are JSON-serializable."""
@@ -49,12 +51,27 @@ def _build_validation_error_payload(exc: ValidationError) -> dict:
 
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError) -> JSONResponse:
     """Handle Pydantic validation errors raised during dependency resolution."""
+    logger.info(
+        "Pydantic validation error during request handling",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "errors": exc.errors(),
+        },
+    )
     payload = _build_validation_error_payload(exc)
     return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=payload)
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all handler for unexpected errors to return a structured 500 response."""
+    logger.exception(
+        f"Unhandled exception while processing request: {exc:!r}",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+        },
+    )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
