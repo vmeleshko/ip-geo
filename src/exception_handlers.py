@@ -66,7 +66,7 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all handler for unexpected errors to return a structured 500 response."""
     logger.exception(
-        f"Unhandled exception while processing request: {exc:!r}",
+        f"Unhandled exception while processing request: {repr(exc)}",
         extra={
             "path": request.url.path,
             "method": request.method,

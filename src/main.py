@@ -66,64 +66,41 @@ async def ip_lookup(
     ip = query.ip
     try:
         if ip:
-            logger.info(
-                "Performing explicit IP lookup",
-                extra={
-                    "path": request.url.path,
-                    "method": request.method,
-                    "ip": ip,
-                },
-            )
+            logger.info(f"Performing explicit IP lookup path={request.url.path} method={request.method} ip={ip}")
             data: IPGeolocationData = await client.lookup_ip(ip)
         else:
+            # Automatically detect the client's IP address from the request.
+            client_host = request.client.host if request.client else None
+            x_forwarded_for = request.headers.get("x-forwarded-for")
             logger.info(
-                "Performing client IP lookup",
-                extra={
-                    "path": request.url.path,
-                    "method": request.method,
-                },
+                "Performing client IP lookup "
+                f"path={request.url.path} method={request.method} "
+                f"client_ip={client_host} x_forwarded_for={x_forwarded_for}"
             )
             # For simplicity, rely on ipapi.co's automatic client IP detection.
             # In a real deployment behind a proxy/load balancer you would typically
-            # also inspect X-Forwarded-For or similar headers.
+            # also inspect X-Forwarded-For or similar headers more carefully.
             data = await client.lookup_client_ip()
     except InvalidIpError as exc:
-        logger.info(
-            "Invalid IP error during lookup",
-            extra={
-                "path": request.url.path,
-                "method": request.method,
-                "ip": ip,
-                "error": str(exc),
-            },
+        logger.error(
+            f"Invalid IP error during lookup path={request.url.path} method={request.method} ip={ip} error={exc}"
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "invalid_ip", "message": str(exc)},
         ) from exc
     except ReservedIpError as exc:
-        logger.info(
-            "Reserved/private IP used for lookup",
-            extra={
-                "path": request.url.path,
-                "method": request.method,
-                "ip": ip,
-                "error": str(exc),
-            },
+        logger.error(
+            f"Reserved/private IP used for lookup path={request.url.path} method={request.method} ip={ip} error={exc}"
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "reserved_ip", "message": str(exc)},
         ) from exc
     except IpNotFoundError as exc:
-        logger.info(
-            "No geolocation information found for IP",
-            extra={
-                "path": request.url.path,
-                "method": request.method,
-                "ip": ip,
-                "error": str(exc),
-            },
+        logger.error(
+            "No geolocation information found for IP "
+            f"path={request.url.path} method={request.method} ip={ip} error={exc}"
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,12 +108,8 @@ async def ip_lookup(
         ) from exc
     except UpstreamServiceError as exc:
         logger.exception(
-            "Upstream IP provider error during lookup",
-            extra={
-                "path": request.url.path,
-                "method": request.method,
-                "ip": ip,
-            },
+            "Upstream IP provider error during lookup "
+            f"path={request.url.path} method={request.method} ip={ip} error={exc}"
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
