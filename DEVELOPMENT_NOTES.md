@@ -405,3 +405,45 @@ Local / reserved IP addresses
 172.16.0.1
 127.0.0.1
 169.254.10.20
+
+
+## Test Coverage Report
+
+```(ip-geolocation-service) vitalii_meleshko@EPUALVIW05B4:~/work/ip-geo$ uv run coverage run -m pytest && uv run coverage report -m
+===================================================================================================== test session starts ======================================================================================================
+platform linux -- Python 3.12.7, pytest-8.4.0, pluggy-1.6.0
+rootdir: /home/vitalii_meleshko/work/ip-geo
+configfile: pyproject.toml
+plugins: asyncio-0.23.8, anyio-4.9.0
+asyncio: mode=Mode.STRICT
+collected 36 items                                                                                                                                                                                                             
+
+tests/test_ip_api_co_client.py .............                                                                                                                                                                             [ 36%]
+tests/test_ip_api_com_client.py ..............                                                                                                                                                                           [ 75%]
+tests/test_ip_lookup_request.py .....                                                                                                                                                                                    [ 88%]
+tests/test_main_api.py ....                                                                                                                                                                                              [100%]
+
+====================================================================================================== 36 passed in 1.85s ======================================================================================================
+Name                               Stmts   Miss  Cover   Missing
+----------------------------------------------------------------
+src/__init__.py                        0      0   100%
+src/clients/__init__.py                0      0   100%
+src/clients/base.py                    9      2    78%   17, 22
+src/clients/ip_api_co_client.py       61      3    95%   108, 114-115
+src/clients/ip_api_com_client.py      64      1    98%   95
+src/errors.py                          6      0   100%
+src/exception_handlers.py             38     28    26%   16, 21-29, 41-55, 63-70, 75-85
+src/logger.py                          7      0   100%
+src/main.py                           51      9    82%   39-40, 45, 62, 98-109, 164
+src/models/common.py                  22      3    86%   34, 38-39
+src/models/request_models.py          22      1    95%   54
+src/models/response_models.py         16      0   100%
+tests/common.py                       29      2    93%   48, 51
+tests/test_ip_api_co_client.py       108      0   100%
+tests/test_ip_api_com_client.py      119      0   100%
+tests/test_ip_lookup_request.py       21      0   100%
+tests/test_main_api.py                43      1    98%   19
+----------------------------------------------------------------
+TOTAL                                616     50    92%
+
+```
